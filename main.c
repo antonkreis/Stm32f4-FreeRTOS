@@ -36,7 +36,7 @@ int main(){
 	USART2_Init();
 	SPI_Init();
 	Accel_Init();
-	Accel_Init();
+	//Accel_Init();
 	xQueue = xQueueCreate(4, sizeof(uint8_t));
 	xTaskCreate(vAccelerometerTask, "Accel", 512, NULL, 1, NULL);
 	xTaskCreate(vUSART2Task, "USART", 512, NULL, 1, NULL);
@@ -111,7 +111,7 @@ void USART2_Init(void){
 	GPIOA->AFR[0] |= (0x07 << (4 * 3));
 	
 	USART2->CR1 |= USART_CR1_UE;
-	USART2->CR1 &= -(USART_CR1_M); // 8 bits
+	USART2->CR1 &= ~(USART_CR1_M); // 8 bits
 	
 	//USART2->BRR = 0x683; // 16 MHz
 	USART2->BRR = 0x88C; // 42 MHz
@@ -174,6 +174,7 @@ void SPI_Init(void){
 	SPI1->CRCPR = 0x07; // CRC Polunomal ???????????
 //	SPI1->CR2 |= SPI_CR2_SSOE;
 	SPI1->CR1 |= SPI_CR1_SPE; // enable SPI
+	RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
 }
 
 
