@@ -96,7 +96,7 @@ void USART2_Init(void){
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN; // for PA2(TX) and PA3(RX)
 	
 	//TX
-	GPIOA->MODER &= -GPIO_MODER_MODE2_1;
+	GPIOA->MODER &= ~GPIO_MODER_MODE2_1;
 	GPIOA->MODER |= GPIO_MODER_MODE2_1; //alternate function mode (10)
 	GPIOA->OTYPER &= ~(GPIO_OTYPER_OT2);  //push/pull
 	GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPD2);
