@@ -23,8 +23,8 @@ uint8_t Accel_OutY_L(void);
 uint8_t Accel_OutZ_L(void);
 void Itoa_Send(volatile uint8_t num);
 
-uint8_t Angle_X(uint8_t OutY_H, uint8_t OutY_L, uint8_t OutZ_H, uint8_t OutZ_L);
-uint8_t Angle_Y(uint8_t OutX_H, uint8_t OutX_L, uint8_t OutZ_H, uint8_t OutZ_L);
+uint8_t Angle_X(uint8_t OutX_H, uint8_t OutX_L, uint8_t OutY_H, uint8_t OutY_L, uint8_t OutZ_H, uint8_t OutZ_L);
+uint8_t Angle_Y(uint8_t OutX_H, uint8_t OutX_L, uint8_t OutY_H, uint8_t OutY_L, uint8_t OutZ_H, uint8_t OutZ_L);
 
 
 void vAccelerometerTask(void* param);
@@ -38,8 +38,8 @@ int main(){
 	Accel_Init();
 	Accel_Init();
 	xQueue = xQueueCreate(4, sizeof(uint8_t));
-	xTaskCreate(vAccelerometerTask, "Accel", 256, NULL, 1, NULL);
-	xTaskCreate(vUSART2Task, "USART", 256, NULL, 1, NULL);
+	xTaskCreate(vAccelerometerTask, "Accel", 512, NULL, 1, NULL);
+	xTaskCreate(vUSART2Task, "USART", 512, NULL, 1, NULL);
 	
 	vTaskStartScheduler();
 	
@@ -208,7 +208,7 @@ void vAccelerometerTask(void* param){
 	while(1){
 		
 		
-	  ch = Angle_X(Accel_Out(0xAB), Accel_Out(0xAA), Accel_Out(0xAD), Accel_Out(0xAC));
+	  ch = Angle_X(Accel_Out(0xA9), Accel_Out(0xA8), Accel_Out(0xAB), Accel_Out(0xAA), Accel_Out(0xAD), Accel_Out(0xAC));
 		
 		if(direction_Y){
 			sign = '-';
@@ -220,7 +220,7 @@ void vAccelerometerTask(void* param){
 		xQueueSend(xQueue, &sign, 0);
 		xQueueSend(xQueue, &ch, 0);
 		
-		ch = Angle_Y(Accel_Out(0xA9), Accel_Out(0xA8), Accel_Out(0xAD), Accel_Out(0xAC));
+		ch = Angle_Y(Accel_Out(0xA9), Accel_Out(0xA8), Accel_Out(0xAB), Accel_Out(0xAA), Accel_Out(0xAD), Accel_Out(0xAC));
 		
 		if(direction_X){
 			sign = '-';
@@ -266,14 +266,24 @@ void vUSART2Task(void* param){
 	}
 }
 
- uint8_t Angle_X(uint8_t OutY_H, uint8_t OutY_L, uint8_t OutZ_H, uint8_t OutZ_L){
-	volatile uint16_t OutY = 0, OutZ = 0;
-	volatile float angle = 0.0f;
+ uint8_t Angle_X(uint8_t OutX_H, uint8_t OutX_L, uint8_t OutY_H, uint8_t OutY_L, uint8_t OutZ_H, uint8_t OutZ_L){
+	volatile uint16_t OutX = 0, OutY = 0, OutZ = 0;
+	volatile double angle;
+	OutX |= OutX_H << 8;
+	OutX |= OutX_L;
 	OutY |= OutY_H << 8;
 	OutY |= OutY_L;
 	OutZ |= OutZ_H << 8;
 	OutZ |= OutZ_L;
 
+	if(OutX >= 0x8000){
+		OutX = 0xFFFF - OutX;
+		direction_X = 1;
+	}
+	else{
+		direction_X = 0;
+	}
+	 
 	if(OutY >= 0x8000){
 		OutY = 0xFFFF - OutY;
 		direction_Y = 1;
@@ -293,8 +303,8 @@ void vUSART2Task(void* param){
 	if(OutZ == 0){
 		return 0;
 	}
-	angle = (float)atan((float)OutY/(float)OutZ); // rad
-	angle = angle * 57.29578f;
+	angle = (double)atan((double)OutY/sqrt(OutX * OutX + OutZ * OutZ)); // rad
+	angle = angle * 57.29578;
 	
 	if(direction_Z == 1){
 		angle = 180 - angle;
@@ -302,20 +312,30 @@ void vUSART2Task(void* param){
 	return (uint8_t)angle;
 }
 
-uint8_t Angle_Y(uint8_t OutX_H, uint8_t OutX_L, uint8_t OutZ_H, uint8_t OutZ_L){
-	volatile uint16_t OutX = 0, OutZ = 0;
+uint8_t Angle_Y(uint8_t OutX_H, uint8_t OutX_L, uint8_t OutY_H, uint8_t OutY_L, uint8_t OutZ_H, uint8_t OutZ_L){
+	volatile uint16_t OutX = 0, OutY = 0, OutZ = 0;
 	volatile double angle;
 	OutX |= OutX_H << 8;
 	OutX |= OutX_L;
+	OutY |= OutY_H << 8;
+	OutY |= OutY_L;
 	OutZ |= OutZ_H << 8;
 	OutZ |= OutZ_L;
-
+	
 	if(OutX >= 0x8000){
 		OutX = 0xFFFF - OutX;
 		direction_X = 1;
 	}
 	else{
 		direction_X = 0;
+	}
+	
+  if(OutY >= 0x8000){
+		OutY = 0xFFFF - OutY;
+		direction_Y = 1;
+	}
+	else{
+		direction_Y = 0;
 	}
 	
 	if(OutZ >= 0x8000){
@@ -330,7 +350,7 @@ uint8_t Angle_Y(uint8_t OutX_H, uint8_t OutX_L, uint8_t OutZ_H, uint8_t OutZ_L){
 	if(OutZ == 0){
 		return 0;
 	}
-	angle = atan((double)OutX/OutZ); // rad
+	angle = (double)atan((double)OutX/ sqrt(OutY * OutY + OutZ * OutZ)); // rad
 	angle = angle * 57.29578;
 	
 	if(direction_Z == 1){
